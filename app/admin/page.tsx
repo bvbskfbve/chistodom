@@ -7,7 +7,31 @@ export default function Admin(){const [currentPassword,setCurrentPassword]=useSt
  const loadSettings=async()=>{const r=await fetch('/api/admin/settings');if(r.ok)setSettings(await r.json());};
  useEffect(()=>{fetch('/api/admin/me').then(r=>r.json()).then(d=>setLogged(!!d.authenticated)).catch(()=>{});},[]);
  useEffect(()=>{if(logged){loadOrders();loadSettings();}},[logged]);
- const login=async()=>{setMsg('');const r=await fetch('/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});const d=await r.json();if(!r.ok){setMsg(d.error);return;}setLogged(true);setPassword('');};
+
+const login=async()=>{
+  setMsg('');
+  try {
+    const r=await fetch('/api/admin/login',{
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({password})
+    });
+
+    const d=await r.json();
+
+    if(!r.ok){
+      setMsg(d.error || 'Ошибка входа. Попробуй ещё раз.');
+      return;
+    }
+
+    setLogged(true);
+    setPassword('');
+  } catch(error) {
+    setMsg('Не удалось связаться с сервером. Обнови страницу и попробуй снова.');
+    console.error('Admin login error:',error);
+  }
+};
+
  const saveSettings=async()=>{setMsg('');const r=await fetch('/api/admin/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(settings)});const d=await r.json();setMsg(r.ok?'Настройки сохранены.':d.error);};
  const updateOrder=async(nextStatus:string)=>{if(!selected)return;const body:any={id:selected.id,status:nextStatus,privateNote};if(nextStatus==='agreed'){body.finalPrice=Number(finalPrice);body.agreedAt=agreedAt;body.agreedTime=agreedTime;}const r=await fetch('/api/admin/orders',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok){setMsg(d.error);return;}setMsg('Заявка обновлена.');await loadOrders();};
  const deleteOrder=async()=>{if(!selected||!window.confirm('Удалить заявку и все приложенные фотографии? Это действие необратимо.'))return;const r=await fetch('/api/admin/orders',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:selected.id})});if(r.ok){setSelected(null);setMsg('Заявка удалена вместе с фотографиями.');await loadOrders();}else setMsg('Не удалось удалить заявку.');};
