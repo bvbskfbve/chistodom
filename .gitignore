@@ -1,0 +1,13 @@
+node_modules
+.next
+.env
+.env.local
+uploads
+*.log
+
+*.tsbuildinfo
+
+# Защита секретов
+.env*
+!.env.example
+.DS_Store

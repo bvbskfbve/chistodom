@@ -1,0 +1,2 @@
+import { NextResponse } from 'next/server';import { cookies } from 'next/headers';import { prisma } from '@/lib/prisma';import { sha, checkOrigin } from '@/lib/security';
+export async function POST(){if(!(await checkOrigin()))return NextResponse.json({error:'Недопустимый источник.'},{status:403});const c=await cookies();const t=c.get('chistodom_admin')?.value;if(t)await prisma.adminSession.deleteMany({where:{tokenHash:sha(t)}});c.delete('chistodom_admin');return NextResponse.json({ok:true});}

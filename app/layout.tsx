@@ -1,0 +1,4 @@
+import type { Metadata, Viewport } from 'next';import './globals.css';import ServiceWorker from '@/components/ServiceWorker';import ThemeSync from '@/components/ThemeSync';
+export const metadata:Metadata={title:'ЧистоДом — бережная химчистка мебели с выездом',description:'Рассчитайте примерную стоимость химчистки дивана, кресла, матраса и стульев. Оставьте заявку с фотографиями.',manifest:'/manifest.webmanifest',icons:{icon:'/icons/icon-192.png',apple:'/icons/icon-192.png'},applicationName:'ЧистоДом',robots:{index:true,follow:true}};
+export const viewport:Viewport={themeColor:'#f5f3ed',width:'device-width',initialScale:1,viewportFit:'cover'};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ru" suppressHydrationWarning><body><ServiceWorker/><ThemeSync/>{children}</body></html>}

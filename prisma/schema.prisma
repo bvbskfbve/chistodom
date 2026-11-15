@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CompanySettings {
+  id                 String   @id @default("main")
+  name               String   @default("ЧистоДом")
+  city               String   @default("")
+  territory          String   @default("")
+  phone              String   @default("")
+  whatsapp           String   @default("")
+  accent             String   @default("#668477")
+  prices             Json
+  gameMode           String   @default("off")
+  bonusAmount        Int      @default(500)
+  bonusDays          Int      @default(30)
+  bonusMinimum       Int      @default(3000)
+  charactersEnabled  Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
+}
+
+model Order {
+  id               String         @id @default(cuid())
+  tokenHash        String         @unique
+  idempotencyKey   String         @unique
+  customerName     String
+  phone            String
+  address          String
+  outsideCity      Boolean        @default(false)
+  preferredDate    String?
+  preferredTime    String?
+  comment          String         @default("")
+  consentAt        DateTime
+  items            Json
+  pricingSnapshot  Json
+  knownSubtotal    Int
+  cleaningTotal    Int
+  travelFee        Int
+  estimateTotal    Int?
+  finalPrice       Int?
+  status           String         @default("new")
+  privateNote      String         @default("")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  photos           OrderPhoto[]
+  history          OrderHistory[]
+
+  @@index([status, createdAt])
+  @@index([phone])
+}
+
+model OrderPhoto {
+  id           String   @id @default(cuid())
+  orderId      String
+  storageKey   String   @unique
+  originalName String
+  mimeType     String
+  size         Int
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model OrderHistory {
+  id        String   @id @default(cuid())
+  orderId   String
+  action    String
+  detail    String
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model AdminCredential {
+  id           String   @id @default("main")
+  passwordHash String
+  updatedAt    DateTime @updatedAt
+}

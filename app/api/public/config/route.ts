@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {prisma} from '@/lib/prisma';import {defaultPrices,priceSchema} from '@/lib/pricing';
+export async function GET(){const s=await prisma.companySettings.findUnique({where:{id:'main'}});return NextResponse.json({name:s?.name||'ЧистоДом',city:s?.city||'',territory:s?.territory||'',phone:s?.phone||'',whatsapp:s?.whatsapp||'',accent:s?.accent||'#668477',prices:priceSchema.parse(s?.prices??defaultPrices)} ,{headers:{'Cache-Control':'no-store'}});}
