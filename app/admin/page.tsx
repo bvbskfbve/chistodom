@@ -1,4 +1,5 @@
 'use client';
+
 import {useEffect,useState} from 'react';import {LogOut,RefreshCw,Search,Settings,Inbox,Building2,Gamepad2,Users,KeyRound,Save} from 'lucide-react';import {rub} from '@/lib/format';
 const tabs=[['orders','Заявки',Inbox],['prices','Тарифы',Settings],['company','Компания',Building2],['game','Игра',Gamepad2],['characters','Персонажи',Users],['access','Доступ',KeyRound]] as const;
 export default function Admin(){const [currentPassword,setCurrentPassword]=useState(''),[newPassword,setNewPassword]=useState('');const [logged,setLogged]=useState(false),[password,setPassword]=useState(''),[tab,setTab]=useState('orders'),[orders,setOrders]=useState<any[]>([]),[selected,setSelected]=useState<any>(null),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[settings,setSettings]=useState<any>(null),[msg,setMsg]=useState(''),[loading,setLoading]=useState(false),[finalPrice,setFinalPrice]=useState(''),[agreedAt,setAgreedAt]=useState(''),[agreedTime,setAgreedTime]=useState(''),[privateNote,setPrivateNote]=useState('');
