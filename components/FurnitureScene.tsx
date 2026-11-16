@@ -1,18 +1,369 @@
-'use client';
-import { Canvas } from '@react-three/fiber';
-import { ContactShadows, OrbitControls, RoundedBox, useProgress, Html } from '@react-three/drei';
-import { Suspense, useRef, useState, useEffect, Component, type ReactNode } from 'react';
 
-function Loading(){const {progress}=useProgress();return <Html center><div className="sceneLoading">Подготавливаем 3D · {Math.round(progress)}%</div></Html>}
-function Sofa({chair=false}:{chair?:boolean}){return <group position={[0,-.35,0]}>
- <RoundedBox args={chair?[1.45,.62,.88]:[2.5,.62,.95]} radius={.14} smoothness={5} position={[0,.35,-.08]}><meshStandardMaterial color="#c4a98c" roughness={.82}/></RoundedBox>
- <RoundedBox args={chair?[1.4,.9,.22]:[2.45,.95,.22]} radius={.12} smoothness={5} position={[0,.88,-.48]}><meshStandardMaterial color="#b89a7d" roughness={.9}/></RoundedBox>
- {[-.37,.37].map((x,i)=><RoundedBox key={i} args={chair?[.23,.76,.9]:[.3,.78,.95]} radius={.12} smoothness={5} position={[chair?x*1.5:x*2.9,.52,0]}><meshStandardMaterial color="#b18e70" roughness={.85}/></RoundedBox>)}
- {(chair?[0]:[-.76,0,.76]).map((x,i)=><RoundedBox key={i} args={[chair?1.03:.72,.22,.76]} radius={.12} smoothness={5} position={[x,.73,.05]}><meshStandardMaterial color={i===1?'#d3bba2':'#d9c4ad'} roughness={.95}/></RoundedBox>)}
- {[-.9,.9].map((x,i)=><mesh key={i} position={[chair?x*.52:x*1.03,.02,.02]}><cylinderGeometry args={[.045,.055,.48,12]}/><meshStandardMaterial color="#725f50"/></mesh>)}
- </group>}
-function Mattress(){return <group position={[0,-.28,0]}><RoundedBox args={[2.05,.38,1.35]} radius={.13} smoothness={6} position={[0,.25,0]}><meshStandardMaterial color="#e4dfd5" roughness={.92}/></RoundedBox><RoundedBox args={[2.0,.1,1.3]} radius={.1} smoothness={6} position={[0,.48,0]}><meshStandardMaterial color="#f4f0e8" roughness={.85}/></RoundedBox>{Array.from({length:12},(_,i)=><mesh key={i} position={[-.88+(i%6)*.35,.32,-.45+Math.floor(i/6)*.9]}><sphereGeometry args={[.018,8,8]}/><meshStandardMaterial color="#b8b2a7"/></mesh>)}</group>}
-function Chair(){return <group position={[0,-.3,0]}><RoundedBox args={[.82,.17,.8]} radius={.08} position={[0,.48,0]}><meshStandardMaterial color="#c7a98a"/></RoundedBox><RoundedBox args={[.82,.85,.13]} radius={.07} position={[0,.94,-.35]}><meshStandardMaterial color="#b18e70"/></RoundedBox>{[-.3,.3].map(x=>[-.28,.28].map(z=><mesh key={`${x}${z}`} position={[x,.19,z]}><cylinderGeometry args={[.035,.045,.55,10]}/><meshStandardMaterial color="#765e4b"/></mesh>))}</group>}
-class SceneBoundary extends Component<{children:ReactNode},{failed:boolean}>{constructor(props:{children:ReactNode}){super(props);this.state={failed:false};}static getDerivedStateFromError(){return {failed:true};}render(){if(this.state.failed)return <div className="sceneFallback"><div className="fallbackObject">▰</div><span>3D временно недоступно</span><button onClick={()=>this.setState({failed:false})}>Повторить</button></div>;return this.props.children;}}
-function Model({kind}:{kind:string}){return <group key={kind}>{kind==='mattress'?<Mattress/>:kind==='chair'?<Chair/>:kind==='armchair'?<Sofa chair/>:<Sofa/>}</group>}
-export default function FurnitureScene({kind='sofa'}:{kind?:string}){const controls=useRef<any>(null);const [supported,setSupported]=useState<boolean|null>(null);const [retry,setRetry]=useState(0);useEffect(()=>{const canvas=document.createElement('canvas');setSupported(!!(canvas.getContext('webgl2')||canvas.getContext('webgl')));},[retry]);if(supported===false)return <div className="sceneFallback"><div className="fallbackObject">{kind==='mattress'?'▱':kind==='chair'?'♧':'▰'}</div><span>3D недоступно в этом браузере</span><button onClick={()=>{setSupported(null);setRetry(x=>x+1);}}>Повторить</button></div>;if(supported===null)return <div className="sceneFallback">Подготавливаем 3D…</div>;return <div className="sceneWrap"><SceneBoundary><Canvas frameloop="demand" dpr={[1,1.5]} camera={{position:[3.6,2.5,4.2],fov:36}} gl={{antialias:true,alpha:true,powerPreference:'low-power'}} onCreated={({gl})=>{gl.setClearColor('#000000',0)}}><ambientLight intensity={1.1}/><hemisphereLight args={['#f5f1e8','#7c766c',.55]}/><directionalLight position={[3,6,4]} intensity={2.2}/><directionalLight position={[-4,2,-3]} intensity={.7}/><Suspense fallback={<Loading/>}><Model kind={kind}/><ContactShadows position={[0,-.62,0]} opacity={.32} scale={5} blur={2.5} far={3}/></Suspense><OrbitControls ref={controls} makeDefault enablePan={false} minDistance={3.2} maxDistance={7} minPolarAngle={.55} maxPolarAngle={1.48} rotateSpeed={.72} zoomSpeed={.7}/></Canvas></SceneBoundary><button className="sceneReset" onClick={()=>controls.current?.reset()} aria-label="Сбросить ракурс" title="Сбросить ракурс">↺</button><div className="sceneHint">Поверните предмет пальцем или мышью</div></div>}
+'use client';
+
+import { Canvas } from '@react-three/fiber';
+import {
+  ContactShadows,
+  OrbitControls,
+  RoundedBox,
+  useProgress,
+  Html,
+  useGLTF
+} from '@react-three/drei';
+import {
+  Suspense,
+  useRef,
+  useState,
+  useEffect,
+  Component,
+  type ReactNode
+} from 'react';
+
+const navy = '#172D50';
+const beige = '#B9A18A';
+
+function Loading() {
+  const { progress } = useProgress();
+  return (
+    <Html center>
+      <div className="sceneLoading">
+        Подготавливаем 3D · {Math.round(progress)}%
+      </div>
+    </Html>
+  );
+}
+
+
+function Sofa() {
+  return (
+    <group position={[0, -0.28, 0]}>
+      {/* Корпус дивана */}
+      <RoundedBox args={[2.65, 0.43, 1.08]} radius={0.13} smoothness={12} position={[0, 0.43, 0]}>
+        <meshStandardMaterial color={navy} roughness={0.96} />
+      </RoundedBox>
+
+      {/* Сиденье */}
+      <RoundedBox args={[2.13, 0.23, 0.88]} radius={0.09} smoothness={12} position={[0, 0.68, 0.07]}>
+        <meshStandardMaterial color={navy} roughness={0.98} />
+      </RoundedBox>
+
+      {/* Спинка */}
+      <RoundedBox args={[2.57, 0.96, 0.24]} radius={0.12} smoothness={14} position={[0, 0.91, -0.42]}>
+        <meshStandardMaterial color={navy} roughness={0.96} />
+      </RoundedBox>
+
+      {/* Три подушки */}
+      {[-0.78, 0, 0.78].map((x, i) => (
+        <RoundedBox key={i} args={[0.82, 0.70, 0.13]} radius={0.085} smoothness={12} position={[x, 0.98, -0.275]}>
+          <meshStandardMaterial color={navy} roughness={0.98} />
+        </RoundedBox>
+      ))}
+
+      {/* Подлокотники */}
+      {[-1, 1].map(side => (
+        <RoundedBox key={side} args={[0.29, 0.68, 0.98]} radius={0.12} smoothness={14} position={[side * 1.18, 0.63, 0.02]}>
+          <meshStandardMaterial color={navy} roughness={0.95} />
+        </RoundedBox>
+      ))}
+
+      {/* Бежевое основание */}
+      <RoundedBox args={[2.53, 0.10, 0.91]} radius={0.035} smoothness={8} position={[0, 0.17, 0]}>
+        <meshStandardMaterial color={beige} roughness={0.8} />
+      </RoundedBox>
+
+      {/* Ножки */}
+      {[-1, 1].map(x =>
+        [-1, 1].map(z => (
+          <mesh key={`${x}-${z}`} position={[x * 1.1, -0.04, z * 0.36]}>
+            <cylinderGeometry args={[0.045, 0.06, 0.42, 20]} />
+            <meshStandardMaterial color={beige} roughness={0.78} />
+          </mesh>
+        ))
+      )}
+    </group>
+  );
+}
+
+
+function Armchair() {
+  return (
+    <group position={[0, -0.28, 0]}>
+      {/* Нижнее основание */}
+      <RoundedBox
+        args={[1.38, 0.30, 1.12]}
+        radius={0.13}
+        smoothness={14}
+        position={[0, 0.43, 0]}
+      >
+        <meshStandardMaterial color={navy} roughness={0.95} />
+      </RoundedBox>
+
+      {/* Мягкое сиденье */}
+      <RoundedBox
+        args={[1.30, 0.25, 0.96]}
+        radius={0.13}
+        smoothness={16}
+        position={[0, 0.65, 0.06]}
+      >
+        <meshStandardMaterial color={navy} roughness={0.98} />
+      </RoundedBox>
+
+      {/* Высокая спинка */}
+      <RoundedBox
+        args={[1.30, 1.05, 0.25]}
+        radius={0.16}
+        smoothness={16}
+        position={[0, 0.91, -0.39]}
+      >
+        <meshStandardMaterial color={navy} roughness={0.96} />
+      </RoundedBox>
+
+      {/* Центральная подушка спинки */}
+      <RoundedBox
+        args={[1.12, 0.78, 0.12]}
+        radius={0.12}
+        smoothness={14}
+        position={[0, 0.98, -0.245]}
+      >
+        <meshStandardMaterial color={navy} roughness={0.98} />
+      </RoundedBox>
+
+      {/* Объёмные подлокотники */}
+      {[-1, 1].map(side => (
+        <RoundedBox
+          key={side}
+          args={[0.27, 0.68, 0.98]}
+          radius={0.13}
+          smoothness={16}
+          position={[side * 0.69, 0.65, 0.02]}
+        >
+          <meshStandardMaterial color={navy} roughness={0.95} />
+        </RoundedBox>
+      ))}
+
+      {/* Бежевое основание */}
+      <RoundedBox
+        args={[1.20, 0.10, 0.88]}
+        radius={0.04}
+        smoothness={10}
+        position={[0, 0.20, 0]}
+      >
+        <meshStandardMaterial color={beige} roughness={0.8} />
+      </RoundedBox>
+
+      {/* Ножки */}
+      {[-1, 1].map(x =>
+        [-1, 1].map(z => (
+          <mesh
+            key={`${x}-${z}`}
+            position={[x * 0.52, -0.04, z * 0.34]}
+          >
+            <cylinderGeometry args={[0.045, 0.06, 0.42, 20]} />
+            <meshStandardMaterial color={beige} roughness={0.78} />
+          </mesh>
+        ))
+      )}
+    </group>
+  );
+}
+
+
+function Chair() {
+  return (
+    <group position={[0, -0.28, 0]}>
+      {/* Мягкое сиденье */}
+      <RoundedBox
+        args={[0.92, 0.20, 0.82]}
+        radius={0.09}
+        smoothness={14}
+        position={[0, 0.56, 0.02]}
+      >
+        <meshStandardMaterial color={navy} roughness={0.96} />
+      </RoundedBox>
+
+      {/* Спинка */}
+      <RoundedBox
+        args={[0.92, 0.82, 0.17]}
+        radius={0.09}
+        smoothness={14}
+        position={[0, 1.02, -0.32]}
+      >
+        <meshStandardMaterial color={navy} roughness={0.96} />
+      </RoundedBox>
+
+      {/* Ножки */}
+      {[-1, 1].map(x =>
+        [-1, 1].map(z => (
+          <mesh
+            key={`${x}-${z}`}
+            position={[x * 0.34, 0.20, z * 0.29]}
+          >
+            <cylinderGeometry args={[0.035, 0.05, 0.62, 16]} />
+            <meshStandardMaterial color={beige} roughness={0.76} />
+          </mesh>
+        ))
+      )}
+
+      {/* Перекладины */}
+      {[-1, 1].map(x => (
+        <mesh key={x} position={[x * 0.34, 0.40, -0.12]}>
+          <boxGeometry args={[0.055, 0.065, 0.4]} />
+          <meshStandardMaterial color={beige} roughness={0.78} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+
+
+
+function Mattress() {
+  const { scene } = useGLTF('/models/mattress.glb');
+
+  return (
+    <group position={[0, -0.25, 0]}>
+      <primitive
+        object={scene}
+        scale={1}
+      />
+    </group>
+  );
+}
+
+
+
+class SceneBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="sceneFallback">
+          <div className="fallbackObject">▰</div>
+          <span>3D временно недоступно</span>
+          <button onClick={() => this.setState({ failed: false })}>
+            Повторить
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
+function Model({ kind }: { kind: string }) {
+  if (kind === 'mattress') return <Mattress />;
+  if (kind === 'chair') return <Chair />;
+  if (kind === 'armchair') return <Armchair />;
+  return <Sofa />;
+}
+
+
+export default function FurnitureScene({
+  kind = 'sofa'
+}: {
+  kind?: string;
+}) {
+  const controls = useRef<any>(null);
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    const canvas = document.createElement('canvas');
+    setSupported(
+      !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+    );
+  }, [retry]);
+
+  if (supported === false) {
+    return (
+      <div className="sceneFallback">
+        <span>3D недоступно в этом браузере</span>
+        <button onClick={() => {
+          setSupported(null);
+          setRetry(x => x + 1);
+        }}>
+          Повторить
+        </button>
+      </div>
+    );
+  }
+
+  if (supported === null) {
+    return <div className="sceneFallback">Подготавливаем 3D…</div>;
+  }
+
+  return (
+    <div className="sceneWrap">
+      <SceneBoundary>
+        <Canvas
+          frameloop="demand"
+          dpr={[1, 1.5]}
+          camera={{ position: [4.3, 3.1, 5.6], fov: 40 }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            powerPreference: 'low-power'
+          }}
+          onCreated={({ gl }) => {
+            gl.setClearColor('#000000', 0);
+          }}
+        >
+          <ambientLight intensity={1.15} />
+          <hemisphereLight args={['#f5f1e8', '#77716a', 0.55]} />
+          <directionalLight position={[3, 6, 4]} intensity={2} />
+          <directionalLight position={[-4, 2, -3]} intensity={0.65} />
+
+          <Suspense fallback={<Loading />}>
+            <Model kind={kind} />
+            <ContactShadows
+              position={[0, -0.62, 0]}
+              opacity={0.28}
+              scale={5}
+              blur={2.5}
+              far={3}
+            />
+          </Suspense>
+
+          <OrbitControls
+            ref={controls}
+            makeDefault
+            target={[0, 0.48, 0]}
+            enablePan={false}
+            minDistance={4.2}
+            maxDistance={9}
+            minPolarAngle={0.55}
+            maxPolarAngle={1.48}
+            rotateSpeed={0.72}
+            zoomSpeed={0.7}
+          />
+        </Canvas>
+      </SceneBoundary>
+
+      <button
+        className="sceneReset"
+        onClick={() => controls.current?.reset()}
+        aria-label="Сбросить ракурс"
+        title="Сбросить ракурс"
+      >
+        ↺
+      </button>
+
+      <div className="sceneHint">
+        Поверните предмет пальцем или мышью
+      </div>
+    </div>
+  );
+}
